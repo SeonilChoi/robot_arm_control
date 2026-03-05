@@ -20,9 +20,11 @@ class SimulationEnv:
                 self._viewer = mujoco.viewer.launch_passive(
                     robot.model, robot.data, key_callback=None
                 )
-            except Exception:
+                print("MuJoCo viewer opened. Close the viewer window or press Ctrl+C to end.")
+            except Exception as e:
                 self._viewer = None
                 self._render = False
+                print(f"Rendering disabled (no display or viewer error): {e}")
 
     @classmethod
     def from_xml_path(cls, xml_path: str = "arm_6dof.xml", render: bool = False) -> "SimulationEnv":

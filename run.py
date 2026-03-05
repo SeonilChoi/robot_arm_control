@@ -21,15 +21,16 @@ from controllers import CONTROLLERS
 
 
 def get_reference(t: float, nq: int = 6) -> np.ndarray:
-    """Target: constant pose with optional small motion. Returns (6,) or (12,) for q_ref [, qd_ref]."""
+    """Target: constant pose with slow motion so tracking error can decrease."""
     q_ref = np.zeros(nq)
-    q_ref[0] = 0.5 * np.sin(0.5 * t)   # slow sine on joint 1
-    q_ref[1] = 0.3
-    q_ref[2] = -0.2
+    q_ref[0] = 0.3 * np.sin(0.3 * t)   # slow, small amplitude
+    q_ref[1] = 0.25
+    q_ref[2] = -0.15
     q_ref[3] = 0.0
     q_ref[4] = 0.0
     q_ref[5] = 0.0
     qd_ref = np.zeros(nq)
+    qd_ref[0] = 0.3 * 0.3 * np.cos(0.3 * t)  # d/dt of q_ref[0] for smoother tracking
     return np.concatenate([q_ref, qd_ref])
 
 

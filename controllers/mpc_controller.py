@@ -76,7 +76,7 @@ class MPCController(ControllerBase):
             u0,
             args=(x0, self._x_ref),
             method="L-BFGS-B",
-            bounds=[(-50.0, 50.0)] * (N * nq),  # match actuator limits
+            bounds=[(-150.0, 150.0)] * (N * nq),  # match actuator limits
             options=dict(maxiter=50, disp=False),
         )
         u_opt = result.x.reshape(N, nq)
