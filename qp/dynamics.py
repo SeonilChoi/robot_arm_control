@@ -1,6 +1,8 @@
 """
-3-DOF planar robot arm dynamics (numpy only).
-M(q) qdd + C(q,qd) + G(q) = tau
+3-DOF 평면 로봇 동역학 (QP 제어용)
+
+역할: M(q), C(q,qd), G(q), q'' = M^{-1}(tau-C-G), RK4 적분.
+      QP 제어기는 목표 가속도 a* 를 QP로 정한 뒤 tau = M*a* + C + G 로 토크를 냅니다.
 """
 import numpy as np
 
@@ -11,6 +13,7 @@ GRAV = 9.81
 
 
 def M(q):
+    """관성 행렬 3x3."""
     q1, q2, q3 = q[0], q[1], q[2]
     c2, c3 = np.cos(q2), np.cos(q3)
     c23 = np.cos(q2 + q3)
@@ -27,6 +30,7 @@ def M(q):
 
 
 def C_vec(q, qd):
+    """코리올리스/원심력 (3,)."""
     q1, q2, q3 = q[0], q[1], q[2]
     qd1, qd2, qd3 = qd[0], qd[1], qd[2]
     s2, s3 = np.sin(q2), np.sin(q3)
@@ -40,6 +44,7 @@ def C_vec(q, qd):
 
 
 def G(q):
+    """중력 (3,)."""
     q1, q2, q3 = q[0], q[1], q[2]
     s1, s12 = np.sin(q1), np.sin(q1 + q2)
     s123 = np.sin(q1 + q2 + q3)
@@ -52,10 +57,12 @@ def G(q):
 
 
 def qdd_from_tau(q, qd, tau):
+    """q'' = M^{-1}(tau - C - G)."""
     return np.linalg.solve(M(q), tau - C_vec(q, qd) - G(q))
 
 
 def rk4_step(q, qd, tau, dt):
+    """RK4 한 스텝."""
     def deriv(state):
         q_now, qd_now = state[:3], state[3:6]
         qdd = qdd_from_tau(q_now, qd_now, tau)

@@ -1,37 +1,56 @@
 # QP 제어 (목표 각도 추종)
 
-목표 관절각 \(\mathbf{q}_d\)를 추종하기 위해, 매 스텝에서 **원하는 가속도** \(\mathbf{a}\)를 2차 비용(정규화 포함)의 QP로 정해 \(\boldsymbol{\tau} = \mathbf{M}(\mathbf{q})\mathbf{a} + \mathbf{C} + \mathbf{G}\)로 토크를 계산한다. 여기서는 제약 없는 QP만 사용한다.
+목표 관절각 $q_d$ 를 추종하기 위해, 매 스텝에서 **원하는 가속도** $a$ 를 **2차 계획(QP)** 으로 정하고, $\tau = M(q) a + C + G$ 로 토크를 계산한다. 여기서는 **제약 없는 QP** (정규화 포함)만 사용한다.
+
+---
+
+## 왜 이 제어기를 쓰는가?
+
+- **PD형 목표 가속도**: 먼저 "이상적인 가속도" $b = \ddot{q}_d + K_p(q_d - q) + K_d(\dot{q}_d - \dot{q})$ 를 정의한다. $a = b$ 로 두면 PD 제어와 비슷하게 동작한다.
+- **QP로 정하는 이유**: 나중에 **토크 한계** $\tau_{min} \le \tau \le \tau_{max}$ 나 **가속도 한계** 같은 **선형 제약**을 넣고 싶을 때, "가능한 $a$ 중에서 $b$ 에 가장 가까운 것"을 고르는 문제가 **2차 계획(QP)** 이 된다. 지금은 제약 없이, **정규화** $\lambda \|a\|^2$ 만 넣어 QP 형태로 풀어 두었다.
+- **정규화 $\lambda$**: $\lambda$ 를 크게 하면 $a$ 가 작아져 토크가 부드러워지고, 작게 하면 $b$ 에 가깝게 따라가 추종이 빨라진다.
+
+---
 
 ## 1. 수식 정리
 
 ### 목표 가속도 (PD형)
-\[
-\mathbf{b} = \ddot{\mathbf{q}}_d + K_p(\mathbf{q}_d - \mathbf{q}) + K_d(\dot{\mathbf{q}}_d - \dot{\mathbf{q}})
-\]
+
+$$
+b = \ddot{q}_d + K_p(q_d - q) + K_d(\dot{q}_d - \dot{q})
+$$
 
 ### QP (정규화 포함)
-\[
-\min_{\mathbf{a}} \ \frac{1}{2} \|\mathbf{b} - \mathbf{a}\|^2 + \frac{\lambda}{2} \|\mathbf{a}\|^2
-\]
-전개하면 \(\frac{1}{2}\mathbf{a}^T(I + \lambda I)\mathbf{a} + (-\mathbf{b})^T\mathbf{a}\) + 상수.  
-즉 \(H = (1+\lambda)I\), \(\mathbf{c} = -\mathbf{b}\).
+
+$$
+\min_a \ \frac{1}{2} \|b - a\|^2 + \frac{\lambda}{2} \|a\|^2
+$$
+
+전개하면 $\frac{1}{2} a^T (I + \lambda I) a + (-b)^T a$ + 상수.  
+즉 $H = (1+\lambda)I$, $c = -b$ 인 QP.
 
 ### 해 및 토크
-\[
-\mathbf{a}^* = H^{-1}(-\mathbf{c}) = (1+\lambda)^{-1}\mathbf{b}
-\]
-\[
-\boldsymbol{\tau} = \mathbf{M}(\mathbf{q})\mathbf{a}^* + \mathbf{C}(\mathbf{q},\dot{\mathbf{q}}) + \mathbf{G}(\mathbf{q})
-\]
+
+$$
+a^* = H^{-1}(-c) = (1+\lambda)^{-1} b
+$$
+
+$$
+\tau = M(q) a^* + C(q,\dot{q}) + G(q)
+$$
+
+---
 
 ## 2. 수식–코드 매칭
 
 | 수식 | 코드 |
 |------|------|
-| \(\mathbf{b} = \ddot{\mathbf{q}}_d + K_p\mathbf{e} + K_d\dot{\mathbf{e}}\) | `run.py`: `b = QDD_D + Kp @ e + Kd @ edot` |
-| \(H = (1+\lambda)I\), \(\mathbf{c} = -\mathbf{b}\) | `run.py`: `H_qp = (1.0 + lam) * np.eye(3)`, `c_qp = -b` |
-| \(\mathbf{a}^* = H^{-1}(-\mathbf{c})\) (QP 해) | `run.py`: `a_star = np.linalg.solve(H_qp, -c_qp)` |
-| \(\boldsymbol{\tau} = \mathbf{M}\mathbf{a}^* + \mathbf{C} + \mathbf{G}\) | `run.py`: `tau = M(q) @ a_star + C_vec(q, qd) + G(q)` |
+| $b = \ddot{q}_d + K_p e + K_d \dot{e}$ | `run.py`: `b = QDD_D + Kp @ e + Kd @ edot` |
+| $H = (1+\lambda)I$, $c = -b$ | `run.py`: `H_qp = (1.0 + lam) * np.eye(3)`, `c_qp = -b` |
+| $a^* = H^{-1}(-c)$ | `run.py`: `a_star = np.linalg.solve(H_qp, -c_qp)` |
+| $\tau = M a^* + C + G$ | `run.py`: `tau = M(q) @ a_star + C_vec(...) + G(q)` |
+
+---
 
 ## 3. 실행 방법
 
@@ -40,6 +59,26 @@ cd qp
 python run.py
 ```
 
-## 4. 결과
+---
 
-`qp_result.png`: 위—관절각 \(q_1,q_2,q_3\)와 목표(점선). 아래—각도 오차 \(\mathbf{e}\).
+## 4. 입·출력, 제약, 초기조건
+
+| 구분 | 내용 |
+|------|------|
+| **입력** | 목표 $q_d$, $\dot{q}_d$, $\ddot{q}_d$. 현재 $q$, $\dot{q}$. |
+| **출력** | $\tau = M a^* + C + G$ |
+| **제약** | 제약 없는 QP. 토크 클리핑 $\|\tau_i\| \le 50$ N·m. |
+| **초기조건** | $q(0) = [0,0,0]^T$, $\dot{q}(0) = 0$. 목표 $q_d = [0.5,\,0.4,\,0.3]^T$. |
+
+---
+
+## 5. 외란 실험
+
+$t \in [1.5,\,2.5]$ s 동안 $\tau_{dist} = [5,\,-2,\,1]^T$ N·m.  
+QP 제어기의 외란 억제 특성을 무외란과 비교할 수 있다.
+
+---
+
+## 6. 결과
+
+![QP 제어 결과 (관절각·오차: 무외란 vs 유외란)](qp_result.png)
