@@ -19,10 +19,9 @@ Z_E = np.concatenate([Q_E, np.zeros(3)])  # 평형 상태 벡터 [q_e; 0]
 # ========== 선형화 및 LQR 이득 ==========
 A, B = linearize(Q_E)  # dz/dt = A*z + B*u
 
-# LQR 가중치: Q는 상태(q,qd) 오차에 대한 비용, R은 입력(토크) 비용
-# Q가 크면 추종 빠르지만 토크 많이 씀, R이 크면 토크 절약하지만 느림
-Q_lqr = np.diag([50.0, 50.0, 50.0, 5.0, 5.0, 5.0])  # [q1,q2,q3, qd1,qd2,qd3]
-R_lqr = np.diag([0.1, 0.1, 0.1])
+# LQR 가중치: Q는 상태 오차 비용, R은 입력(토크) 비용. R이 너무 작으면 이득이 커져 속도 진동/불안정
+Q_lqr = np.diag([30.0, 30.0, 30.0, 3.0, 3.0, 3.0])  # [q1,q2,q3, qd1,qd2,qd3]
+R_lqr = np.diag([2.0, 2.0, 2.0])   # R을 키워 이득 완화 → 속도 진동 감소
 
 
 def solve_care(A, B, Q, R):
@@ -39,9 +38,12 @@ def solve_care(A, B, Q, R):
     ])
     eigvals, eigvecs = np.linalg.eig(H)
     n = A.shape[0]
-    # 안정 고유값(실부 < 0)에 해당하는 고유벡터로 P 구성
-    idx = np.argsort(np.real(eigvals))
-    stable_idx = idx[:n]
+    # 안정 고유값(실부 < 0)만 선택. 해밀토니안은 실부<0 n개, 실부>0 n개 쌍으로 존재
+    stable_mask = np.real(eigvals) < 0
+    stable_idx = np.where(stable_mask)[0]
+    if len(stable_idx) != n:
+        # fallback: 실부가 작은 순으로 n개
+        stable_idx = np.argsort(np.real(eigvals))[:n]
     X = eigvecs[:n, stable_idx].real
     Y = eigvecs[n:, stable_idx].real
     P = Y @ np.linalg.solve(X.T, np.eye(n)).T
